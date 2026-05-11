@@ -105,7 +105,8 @@
 
   <script>
     const USER_TEXT_LIMIT = {{ user_text_limit }};
-    const MAX_IMAGE_BYTES = {{ max_image_mb }} * 1024 * 1024;
+    const MAX_IMAGE_MB = {{ max_image_mb }};
+    const MAX_IMAGE_BYTES = MAX_IMAGE_MB * 1024 * 1024;
 
     const form = document.getElementById('postForm');
     const textArea = document.getElementById('postText');
@@ -153,7 +154,7 @@
         return;
       }
       if (file.size > MAX_IMAGE_BYTES) {
-        showImageError(`Image must be under ${{{ max_image_mb }}} MB.`);
+        showImageError(`Image must be under ${MAX_IMAGE_MB} MB.`);
         imageInput.value = '';
         return;
       }
