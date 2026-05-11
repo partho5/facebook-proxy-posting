@@ -1,3 +1,4 @@
+import asyncio
 import os
 import tomllib
 import uuid
@@ -12,7 +13,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 
 from app.facebook import FacebookClient
-from app.token_manager import validate_token
+from app.token_manager import refresh_if_needed, validate_token
 
 load_dotenv()
 
@@ -23,26 +24,31 @@ UPLOADS_DIR.mkdir(exist_ok=True)
 with open(BASE_DIR / "config.toml", "rb") as f:
     config = tomllib.load(f)
 
-FB_PAGE_TOKEN = os.environ["FB_PAGE_TOKEN"]
 FB_PAGE_ID = os.environ["FB_PAGE_ID"]
 FB_API_VERSION = "v22.0"
 
 DISCLAIMER = config["post"]["disclaimer"]
 MAX_IMAGE_BYTES = config["post"]["max_image_size_mb"] * 1024 * 1024
 FB_TEXT_LIMIT = 63206
-# Effective character budget for user text (separator "\n\n" = 2 chars)
 USER_TEXT_LIMIT = FB_TEXT_LIMIT - len(DISCLAIMER) - 2
 
 templates = Jinja2Templates(directory=str(BASE_DIR / "app" / "templates"))
 
 
+async def _token_refresh_loop():
+    """Background task: check and refresh token every 24 hours."""
+    while True:
+        await asyncio.sleep(24 * 3600)
+        print("[token] Running scheduled refresh check...")
+        await refresh_if_needed()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    valid = await validate_token(FB_PAGE_TOKEN, FB_API_VERSION)
-    if valid:
-        print("[startup] Facebook token OK.")
-    else:
-        print("[startup] WARNING: Facebook token validation failed.")
+    healthy = await refresh_if_needed()
+    if not healthy:
+        print("[startup] WARNING: Token is invalid and could not be refreshed.")
+    asyncio.create_task(_token_refresh_loop())
     yield
 
 
@@ -82,7 +88,15 @@ async def create_post(
             "message": f"Your message is {over} character(s) too long. Please shorten it.",
         })
 
-    client = FacebookClient(FB_PAGE_TOKEN, FB_PAGE_ID, FB_API_VERSION)
+    # Always read from os.environ so refreshed token is used without restart
+    page_token = os.environ.get("FB_PAGE_TOKEN", "")
+    if not page_token:
+        return JSONResponse({
+            "ok": False,
+            "message": "Posting service is temporarily unavailable. Please try again later.",
+        })
+
+    client = FacebookClient(page_token, FB_PAGE_ID, FB_API_VERSION)
 
     if image and image.filename:
         contents = await image.read()
