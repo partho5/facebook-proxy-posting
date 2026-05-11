@@ -1,0 +1,14 @@
+[Unit]
+Description=Proxy Facebook Posting
+After=network.target
+
+[Service]
+User=YOUR_LINUX_USER
+WorkingDirectory=/path/to/proxy-facebook-posting
+EnvironmentFile=/path/to/proxy-facebook-posting/.env
+ExecStart=/path/to/proxy-facebook-posting/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8001
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

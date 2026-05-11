@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Share Anonymously</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen flex items-center justify-center px-4 py-10">
+
+  <div class="w-full max-w-xl bg-white rounded-2xl shadow-md p-8">
+
+    <h1 class="text-2xl font-bold text-gray-800 mb-1">Share Anonymously</h1>
+    <p class="text-sm text-gray-500 mb-6">Your identity is never recorded or stored.</p>
+
+    <!-- Form -->
+    <form id="postForm" novalidate>
+
+      <!-- Text area -->
+      <div class="mb-4">
+        <textarea
+          id="postText"
+          name="text"
+          rows="6"
+          maxlength="{{ user_text_limit }}"
+          placeholder="Write your message here..."
+          class="w-full border border-gray-300 rounded-xl px-4 py-3 text-gray-800 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+        ></textarea>
+        <div class="flex justify-end mt-1">
+          <span id="charCount" class="text-xs text-gray-400">0 / {{ user_text_limit }}</span>
+        </div>
+      </div>
+
+      <!-- Image upload -->
+      <div class="mb-6">
+        <label class="block text-sm text-gray-600 mb-2">Image <span class="text-gray-400">(optional, max {{ max_image_mb }} MB)</span></label>
+        <div
+          id="dropZone"
+          class="border-2 border-dashed border-gray-300 rounded-xl p-5 text-center cursor-pointer hover:border-blue-400 transition"
+        >
+          <input type="file" id="imageInput" name="image" accept="image/*" class="hidden" />
+          <p id="dropLabel" class="text-sm text-gray-400">Click to choose an image</p>
+          <p id="fileName" class="text-sm text-blue-600 font-medium mt-1 hidden"></p>
+          <button type="button" id="clearImage" class="text-xs text-red-400 hover:text-red-600 mt-1 hidden">Remove</button>
+        </div>
+        <p id="imageError" class="text-xs text-red-500 mt-1 hidden"></p>
+      </div>
+
+      <!-- Submit -->
+      <button
+        type="submit"
+        id="submitBtn"
+        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        Post Anonymously
+      </button>
+
+    </form>
+
+    <!-- Result -->
+    <div id="result" class="hidden mt-6">
+      <!-- Success -->
+      <div id="successBox" class="hidden bg-green-50 border border-green-200 rounded-xl p-5">
+        <p class="text-green-700 font-semibold mb-3">Your message was posted successfully!</p>
+        <div class="flex gap-3 flex-wrap">
+          <a
+            id="viewPostLink"
+            href="#"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition"
+          >
+            View Post &#8599;
+          </a>
+          <button
+            id="copyLinkBtn"
+            type="button"
+            class="inline-flex items-center gap-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium px-4 py-2 rounded-lg transition"
+          >
+            Copy Link
+          </button>
+        </div>
+        <p id="copyConfirm" class="text-xs text-green-600 mt-2 hidden">Link copied to clipboard!</p>
+        <button
+          type="button"
+          id="postAnother"
+          class="mt-4 text-sm text-blue-600 hover:underline"
+        >
+          Post another message
+        </button>
+      </div>
+      <!-- Error -->
+      <div id="errorBox" class="hidden bg-red-50 border border-red-200 rounded-xl p-4">
+        <p id="errorMessage" class="text-red-700 text-sm"></p>
+      </div>
+    </div>
+
+    <!-- Disclaimer preview -->
+    <p class="text-xs text-gray-400 mt-6 border-t pt-4">
+      The following note is automatically appended to every post:<br />
+      <em>{{ disclaimer }}</em>
+    </p>
+
+  </div>
+
+  <script>
+    const USER_TEXT_LIMIT = {{ user_text_limit }};
+    const MAX_IMAGE_BYTES = {{ max_image_mb }} * 1024 * 1024;
+
+    const form = document.getElementById('postForm');
+    const textArea = document.getElementById('postText');
+    const charCount = document.getElementById('charCount');
+    const imageInput = document.getElementById('imageInput');
+    const dropZone = document.getElementById('dropZone');
+    const dropLabel = document.getElementById('dropLabel');
+    const fileName = document.getElementById('fileName');
+    const clearImage = document.getElementById('clearImage');
+    const imageError = document.getElementById('imageError');
+    const submitBtn = document.getElementById('submitBtn');
+    const result = document.getElementById('result');
+    const successBox = document.getElementById('successBox');
+    const errorBox = document.getElementById('errorBox');
+    const errorMessage = document.getElementById('errorMessage');
+    const viewPostLink = document.getElementById('viewPostLink');
+    const copyLinkBtn = document.getElementById('copyLinkBtn');
+    const copyConfirm = document.getElementById('copyConfirm');
+    const postAnother = document.getElementById('postAnother');
+
+    // Character counter
+    textArea.addEventListener('input', () => {
+      const len = textArea.value.length;
+      charCount.textContent = `${len} / ${USER_TEXT_LIMIT}`;
+      charCount.className = len > USER_TEXT_LIMIT
+        ? 'text-xs text-red-500'
+        : 'text-xs text-gray-400';
+    });
+
+    // Image selection via click
+    dropZone.addEventListener('click', (e) => {
+      if (e.target !== clearImage) imageInput.click();
+    });
+
+    imageInput.addEventListener('change', () => {
+      handleFile(imageInput.files[0]);
+    });
+
+    function handleFile(file) {
+      imageError.classList.add('hidden');
+      if (!file) return;
+      if (!file.type.startsWith('image/')) {
+        showImageError('Only image files are allowed.');
+        imageInput.value = '';
+        return;
+      }
+      if (file.size > MAX_IMAGE_BYTES) {
+        showImageError(`Image must be under ${{{ max_image_mb }}} MB.`);
+        imageInput.value = '';
+        return;
+      }
+      dropLabel.classList.add('hidden');
+      fileName.textContent = file.name;
+      fileName.classList.remove('hidden');
+      clearImage.classList.remove('hidden');
+    }
+
+    function showImageError(msg) {
+      imageError.textContent = msg;
+      imageError.classList.remove('hidden');
+      dropLabel.classList.remove('hidden');
+      fileName.classList.add('hidden');
+      clearImage.classList.add('hidden');
+    }
+
+    clearImage.addEventListener('click', (e) => {
+      e.stopPropagation();
+      imageInput.value = '';
+      fileName.classList.add('hidden');
+      clearImage.classList.add('hidden');
+      dropLabel.classList.remove('hidden');
+      imageError.classList.add('hidden');
+    });
+
+    // Submit
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const text = textArea.value.trim();
+      if (!text) {
+        showError('Please write something before submitting.');
+        return;
+      }
+      if (textArea.value.length > USER_TEXT_LIMIT) {
+        showError(`Your message is too long. Please shorten it.`);
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Posting...';
+      result.classList.add('hidden');
+      successBox.classList.add('hidden');
+      errorBox.classList.add('hidden');
+
+      const formData = new FormData();
+      formData.append('text', text);
+      if (imageInput.files[0]) {
+        formData.append('image', imageInput.files[0]);
+      }
+
+      try {
+        const resp = await fetch('/post', { method: 'POST', body: formData });
+        const data = await resp.json();
+
+        if (data.ok) {
+          viewPostLink.href = data.url;
+          copyLinkBtn.dataset.url = data.url;
+          result.classList.remove('hidden');
+          successBox.classList.remove('hidden');
+        } else {
+          showError(data.message);
+        }
+      } catch {
+        showError('Could not reach the server. Please check your connection and try again.');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Post Anonymously';
+      }
+    });
+
+    function showError(msg) {
+      errorMessage.textContent = msg;
+      result.classList.remove('hidden');
+      errorBox.classList.remove('hidden');
+    }
+
+    // Copy link
+    copyLinkBtn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(copyLinkBtn.dataset.url);
+        copyConfirm.classList.remove('hidden');
+        setTimeout(() => copyConfirm.classList.add('hidden'), 3000);
+      } catch {
+        copyConfirm.textContent = 'Could not copy — please copy the link manually.';
+        copyConfirm.classList.remove('hidden');
+      }
+    });
+
+    // Post another
+    postAnother.addEventListener('click', () => {
+      form.reset();
+      charCount.textContent = `0 / ${USER_TEXT_LIMIT}`;
+      charCount.className = 'text-xs text-gray-400';
+      dropLabel.classList.remove('hidden');
+      fileName.classList.add('hidden');
+      clearImage.classList.add('hidden');
+      imageError.classList.add('hidden');
+      result.classList.add('hidden');
+      successBox.classList.add('hidden');
+      copyConfirm.classList.add('hidden');
+    });
+  </script>
+
+</body>
+</html>
