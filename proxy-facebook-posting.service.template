@@ -6,7 +6,7 @@ After=network.target
 User=YOUR_LINUX_USER
 WorkingDirectory=/path/to/proxy-facebook-posting
 EnvironmentFile=/path/to/proxy-facebook-posting/.env
-ExecStart=/path/to/proxy-facebook-posting/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8001
+ExecStart=/path/to/proxy-facebook-posting/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8005
 Restart=always
 RestartSec=5
 
