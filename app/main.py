@@ -1,11 +1,15 @@
 import asyncio
 import os
-import tomllib
+try:
+    import tomllib
+except ImportError:
+    import tomli as tomllib
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
+from typing import Optional
 from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -72,7 +76,7 @@ async def index(request: Request):
 @app.post("/post")
 async def create_post(
     text: str = Form(...),
-    image: UploadFile | None = File(None),
+    image: Optional[UploadFile] = File(None),
 ):
     text = text.strip()
 

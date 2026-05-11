@@ -1,0 +1,14 @@
+[Unit]
+Description=Proxy Facebook Posting
+After=network.target
+
+[Service]
+User=kaleb
+WorkingDirectory=/home/kaleb/facebook-proxy-posting
+EnvironmentFile=/home/kaleb/facebook-proxy-posting/.env
+ExecStart=/home/kaleb/facebook-proxy-posting/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8005
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

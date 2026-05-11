@@ -1,3 +1,5 @@
+from typing import Optional
+
 import httpx
 from pathlib import Path
 
@@ -15,7 +17,7 @@ class FacebookClient:
             return f"https://www.facebook.com/{parts[0]}/posts/{parts[1]}"
         return f"https://www.facebook.com/{compound_id}"
 
-    async def post_text(self, message: str) -> str | None:
+    async def post_text(self, message: str) -> Optional[str]:
         try:
             async with httpx.AsyncClient(timeout=30) as client:
                 resp = await client.post(
@@ -29,7 +31,7 @@ class FacebookClient:
         except Exception:
             return None
 
-    async def post_photo(self, message: str, image_path: Path, content_type: str) -> str | None:
+    async def post_photo(self, message: str, image_path: Path, content_type: str) -> Optional[str]:
         try:
             async with httpx.AsyncClient(timeout=60) as client:
                 with open(image_path, "rb") as f:

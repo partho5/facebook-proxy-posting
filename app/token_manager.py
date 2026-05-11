@@ -1,6 +1,7 @@
 import os
 import time
 from pathlib import Path
+from typing import Dict, Optional, Tuple
 
 import httpx
 from dotenv import dotenv_values, set_key
@@ -22,7 +23,7 @@ async def validate_token(token: str) -> bool:
         return False
 
 
-async def _exchange_long_lived_token(current_token: str, app_id: str, app_secret: str) -> tuple[str, int] | None:
+async def _exchange_long_lived_token(current_token: str, app_id: str, app_secret: str) -> Optional[Tuple[str, int]]:
     """Exchange a long-lived token for a fresh one. Returns (new_token, expires_in) or None."""
     try:
         async with httpx.AsyncClient(timeout=15) as client:
@@ -45,7 +46,7 @@ async def _exchange_long_lived_token(current_token: str, app_id: str, app_secret
         return None
 
 
-async def _get_page_token(long_lived_token: str, page_id: str) -> str | None:
+async def _get_page_token(long_lived_token: str, page_id: str) -> Optional[str]:
     """Derive a permanent Page Access Token from a long-lived user token."""
     try:
         async with httpx.AsyncClient(timeout=15) as client:
@@ -64,7 +65,7 @@ async def _get_page_token(long_lived_token: str, page_id: str) -> str | None:
         return None
 
 
-def _write_env(updates: dict[str, str]) -> None:
+def _write_env(updates: Dict[str, str]) -> None:
     for key, value in updates.items():
         set_key(str(ENV_PATH), key, value)
 
@@ -85,7 +86,10 @@ async def refresh_if_needed() -> bool:
         print("[token] Missing env vars for auto-refresh. Skipping.")
         return await validate_token(os.environ.get("FB_PAGE_TOKEN", ""))
 
-    expires_at = int(expires_at_str)
+    try:
+        expires_at = int(expires_at_str)
+    except (ValueError, TypeError):
+        expires_at = 0
     time_left = expires_at - int(time.time())
 
     if time_left > REFRESH_BEFORE_EXPIRY_SECONDS:
